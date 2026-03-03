@@ -1,11 +1,12 @@
 import axios, { AxiosProgressEvent } from "axios";
 import { ConversionResult } from "@/types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Port disesuaikan ke 10000 agar sesuai dengan backend Docker/Render kita
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:10000";
 
 export const api = axios.create({
   baseURL: API_BASE,
-  timeout: 120_000,
+  timeout: 120_000, // Timeout 2 menit untuk file besar
 });
 
 export async function convertFiles(
@@ -13,21 +14,23 @@ export async function convertFiles(
   files: File[],
   extraFields: Record<string, string | number> = {},
   onProgress?: (percent: number) => void,
-  category: string = "image" // Default category
+  category: string = "image"
 ): Promise<ConversionResult> {
   const formData = new FormData();
   
-  // Penentuan field name berdasarkan jumlah file
+  // Penentuan field name: 'files' jika banyak, 'file' jika tunggal
   const fieldName = files.length > 1 ? "files" : "file";
   files.forEach((f) => formData.append(fieldName, f));
 
-  // Masukkan field tambahan (quality, dsb)
+  // Masukkan field tambahan seperti quality atau format tujuan
   Object.entries(extraFields).forEach(([k, v]) => formData.append(k, String(v)));
 
-  // PENENTUAN PREFIX:
-  // Jika kategori adalah 'pdf', gunakan '/pdf', selain itu gunakan '/convert'
+  // Logika prefix: '/pdf' untuk fitur PDF, '/convert' untuk gambar/dokumen lain
   const prefix = category === "pdf" ? "/pdf" : "/convert";
-  const url = `${prefix}/${endpoint}`;
+  
+  // Memastikan endpoint tidak double slash
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+  const url = `${prefix}/${cleanEndpoint}`;
 
   console.log("🚀 Menembak API ke:", API_BASE + url);
 
@@ -43,7 +46,11 @@ export async function convertFiles(
   return response.data;
 }
 
+/**
+ * Fungsi untuk membuat URL download yang valid dari path relatif backend
+ */
 export function buildDownloadUrl(relativeUrl: string): string {
+  if (!relativeUrl) return "";
   const cleanPath = relativeUrl.startsWith('/') ? relativeUrl : `/${relativeUrl}`;
   return `${API_BASE}${cleanPath}`;
 }

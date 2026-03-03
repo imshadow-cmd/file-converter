@@ -2,7 +2,7 @@
 
 // src/components/converter/DropZone.tsx
 import { useCallback, useState } from "react";
-import { useDropzone } from "react-dropzone";
+import { useDropzone, FileRejection } from "react-dropzone"; // Tambahkan FileRejection
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, FileCheck, X, AlertCircle } from "lucide-react";
 import { ConversionOption } from "@/types";
@@ -23,14 +23,18 @@ function formatBytes(bytes: number): string {
 export default function DropZone({ option, files, onFilesChange }: DropZoneProps) {
   const [sizeError, setSizeError] = useState<string | null>(null);
 
+  // Perbaikan Tipe Data pada parameter rejected
   const onDrop = useCallback(
-    (accepted: File[], rejected: { errors: { message: string }[] }[]) => {
+    (accepted: File[], fileRejections: FileRejection[]) => {
       setSizeError(null);
-      if (rejected.length > 0) {
-        const msg = rejected[0].errors[0]?.message || "File ditolak";
+      
+      if (fileRejections.length > 0) {
+        // Mengambil pesan error pertama dari library
+        const msg = fileRejections[0].errors[0]?.message || "File ditolak";
         setSizeError(msg);
         return;
       }
+
       if (option.multiFile) {
         onFilesChange([...files, ...accepted]);
       } else {
@@ -41,7 +45,7 @@ export default function DropZone({ option, files, onFilesChange }: DropZoneProps
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
+    onDrop, // Sekarang sudah kompatibel dengan TypeScript
     accept: option.acceptedMime,
     multiple: option.multiFile ?? false,
     maxSize: 50 * 1024 * 1024, // 50 MB
