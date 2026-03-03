@@ -26,6 +26,13 @@ export function useConverter(): UseConverterState & UseConverterActions {
   const [result, setResult] = useState<ConversionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const reset = useCallback(() => {
+    setStatus("idle");
+    setUploadProgress(0);
+    setResult(null);
+    setError(null);
+  }, []);
+
   const convert = useCallback(
     async (
       option: ConversionOption,
@@ -38,7 +45,6 @@ export function useConverter(): UseConverterState & UseConverterActions {
       setResult(null);
 
       try {
-        // PEMBAHARUAN: Menambahkan option.category sebagai parameter kelima
         const data = await convertFiles(
           option.endpoint,
           files,
@@ -47,7 +53,7 @@ export function useConverter(): UseConverterState & UseConverterActions {
             setUploadProgress(pct);
             if (pct === 100) setStatus("processing");
           },
-          option.category // <-- Mengirimkan kategori (image/document/pdf)
+          option.category
         );
 
         setResult(data);
@@ -55,9 +61,8 @@ export function useConverter(): UseConverterState & UseConverterActions {
       } catch (err: unknown) {
         let message = "Terjadi kesalahan saat konversi.";
 
-        // Deteksi jika server tidak bisa dijangkau (Network Error)
         if (err && typeof err === "object" && !("response" in err)) {
-          message = "Gagal terhubung ke server (Network Error). Pastikan Backend menyala di port 8000.";
+          message = "Gagal terhubung ke server (Network Error). Pastikan Backend menyala.";
         }
 
         if (err && typeof err === "object" && "response" in err) {
@@ -74,15 +79,11 @@ export function useConverter(): UseConverterState & UseConverterActions {
     []
   );
 
-  const reset = useCallback(() => {
-    setStatus("idle");
-    setUploadProgress(0);
-    setResult(null);
-    setError(null);
-  }, []);
-
+  // PEMBAHARUAN: Otomatis kembali ke halaman utama setelah download
   const downloadResult = useCallback(() => {
     if (!result) return;
+    
+    // 1. Jalankan proses pengunduhan
     const url = buildDownloadUrl(result.download_url);
     const a = document.createElement("a");
     a.href = url;
@@ -90,7 +91,13 @@ export function useConverter(): UseConverterState & UseConverterActions {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-  }, [result]);
+
+    // 2. Beri jeda 2 detik agar browser memproses download, lalu reset state
+    // Ini akan mengarahkan UI kembali ke tampilan pemilihan file (halaman utama)
+    setTimeout(() => {
+      reset();
+    }, 1000); 
+  }, [result, reset]);
 
   return { status, uploadProgress, result, error, convert, reset, downloadResult };
 }
